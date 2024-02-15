@@ -40,6 +40,24 @@ variable "default_compute_route_ip" {
   default     = "0.0.0.0/0"
 }
 
+variable "app_subnetwork" {
+  description = "name of app subnetwork"
+  type        = string
+  default     = "webapp"
+}
+
+variable "db_subnetwork" {
+  description = "name of db subnetwork"
+  type        = string
+  default     = "db"
+}
+
+variable "default_compute_route" {
+  description = "name of db default compute route"
+  type        = string
+  default     = "default-compute-route"
+}
+
 variable "vpc_count" {
   description = "number of VPCs"
 }
