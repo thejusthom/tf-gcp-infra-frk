@@ -6,7 +6,7 @@ provider "google" {
 
 resource "google_compute_network" "vpc_network" {
   count                           = var.vpc_count
-  name                            = "${var.vpc_name}-${count.index}"
+  name                            = count.index < 1 ? var.vpc_name : "${var.vpc_name}-${count.index}"
   auto_create_subnetworks         = false
   routing_mode                    = "REGIONAL"
   delete_default_routes_on_create = true
