@@ -47,7 +47,7 @@ variable "app_subnetwork" {
 }
 
 variable "db_subnetwork" {
-  description = "name of db subnetwork"
+description = "name of db subnetwork"
   type        = string
   default     = "db"
 }
