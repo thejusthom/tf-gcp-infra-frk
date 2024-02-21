@@ -61,3 +61,7 @@ variable "default_compute_route" {
 variable "vpc_count" {
   description = "number of VPCs"
 }
+
+variable "routing_mode" {
+  description = "routing mode"
+}
