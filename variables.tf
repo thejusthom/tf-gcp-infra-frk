@@ -59,9 +59,88 @@ variable "default_compute_route" {
 }
 
 variable "vpc_count" {
+  type        = string
   description = "number of VPCs"
 }
 
 variable "routing_mode" {
+  type        = string
   description = "routing mode"
+}
+
+variable "next_hop_gateway" {
+  type        = string
+  description = "value"
+}
+
+variable "firewall_name_allow" {
+  type        = string
+  description = "Firewall name"
+}
+
+variable "firewall_name_deny" {
+  type        = string
+  description = "Firewall name"
+}
+
+variable "allowed_port_tcp" {
+  type        = list(string)
+  description = "Allowed TCP Ports"
+}
+variable "firewall_source_tags" {
+  type = list(string)
+}
+variable "firewall_source_ranges" {
+  type = list(string)
+}
+variable "ci_name" {
+  type        = string
+  description = "Name of the VM"
+}
+
+variable "ci_machine_type" {
+  type        = string
+  description = "Compute Instance Machine Type"
+}
+
+variable "ci_zone" {
+  type        = string
+  description = "Compute Instance Zone"
+}
+
+variable "ci_tags" {
+  type        = list(string)
+  description = "VM Tags"
+
+}
+
+variable "boot_disk_device_name" {
+  type        = string
+  description = "Boot Disk Device Name"
+}
+
+variable "image_path" {
+  type        = string
+  description = "Image Path"
+}
+
+variable "disk_size" {
+  type        = number
+  description = "Size of disk"
+
+}
+
+variable "disk_type" {
+  type        = string
+  description = "Disk Type"
+}
+
+variable "service_account_email" {
+  type        = string
+  description = "Service account email"
+}
+
+variable "service_account_scope" {
+  type        = list(string)
+  description = "Service account scope"
 }
