@@ -160,4 +160,5 @@ resource "google_sql_user" "users" {
   name     = var.database_db_name
   instance = google_sql_database_instance.mysql_instance.name
   password = random_password.password.result
+  host = google_compute_instance.vm-instance.hostname
 }
