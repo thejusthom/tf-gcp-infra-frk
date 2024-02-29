@@ -165,7 +165,7 @@ variable "ps_connection_service" {
   default = "servicenetworking.googleapis.com"
 }
 variable "database_version" {
-  type = string
+  type    = string
   default = "MYSQL_8_0"
 }
 variable "database_instance_region" {
