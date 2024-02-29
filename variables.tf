@@ -144,3 +144,100 @@ variable "service_account_scope" {
   type        = list(string)
   description = "Service account scope"
 }
+variable "ps_ip_address_name" {
+  type    = string
+  default = "ps-ip-address"
+}
+variable "ps_ip_address_type" {
+  type    = string
+  default = "INTERNAL"
+}
+variable "ps_ip_address_purpose" {
+  type    = string
+  default = "VPC_PEERING"
+}
+variable "ps_ip_address_prefix_length" {
+  type    = number
+  default = 24
+}
+variable "ps_connection_service" {
+  type    = string
+  default = "servicenetworking.googleapis.com"
+}
+variable "database_version" {
+  type = string
+  default = "MYSQL_8_0"
+}
+variable "database_instance_region" {
+  type    = string
+  default = "us-east1"
+}
+variable "database_instance_tier" {
+  type    = string
+  default = "db-f1-micro"
+}
+variable "database_availability_type" {
+  type    = string
+  default = "REGIONAL"
+}
+variable "database_disk_type" {
+  type    = string
+  default = "PD_SSD"
+}
+variable "database_disk_size" {
+  type    = number
+  default = 100
+}
+variable "database_db_name" {
+  type    = string
+  default = "webapp"
+}
+variable "password_length" {
+  type    = number
+  default = 12
+}
+
+variable "password_special" {
+  type    = bool
+  default = true
+}
+
+variable "password_min_lower" {
+  type    = number
+  default = 2
+}
+
+variable "password_min_upper" {
+  type    = number
+  default = 2
+}
+
+variable "password_min_numeric" {
+  type    = number
+  default = 2
+}
+
+variable "password_min_special" {
+  type    = number
+  default = 2
+}
+
+variable "password_override_special" {
+  type    = string
+  default = "‘~!@#$%^&*()_-+={}[]/<>,.;?':|"
+}
+
+variable "mysql_suffix_length" {
+  type    = number
+  default = 8
+}
+
+variable "mysql_suffix_special" {
+  type    = bool
+  default = false
+}
+
+variable "mysql_suffix_upper" {
+  type    = bool
+  default = false
+}
