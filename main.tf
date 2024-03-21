@@ -82,7 +82,7 @@ resource "google_compute_instance" "vm-instance" {
     }
   }
   service_account {
-    email  = var.service_account_email
+    email  = google_service_account.service_account.email
     scopes = var.service_account_scope
   }
 
@@ -161,4 +161,33 @@ resource "google_sql_user" "users" {
   instance = google_sql_database_instance.mysql_instance.name
   password = random_password.password.result
   host     = google_compute_instance.vm-instance.hostname
+}
+
+resource "google_dns_record_set" "dns_record_set" {
+  name = var.dns_record_name
+  type = var.dns_record_type
+  ttl  = var.dns_record_ttl
+
+  managed_zone = var.managed_zone
+  rrdatas      = [google_compute_instance.vm-instance.network_interface[0].access_config[0].nat_ip]
+}
+resource "google_service_account" "service_account" {
+  account_id   = var.service_account_account_id
+  display_name = var.service_account_display_name
+}
+
+
+resource "google_project_iam_binding" "service_account_roles_logging_admin" {
+  project = var.project_id
+  role    = var.logging_admin_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+resource "google_project_iam_binding" "service_account_roles_metric_write" {
+  project = var.project_id
+  role    = var.metric_writer_role
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
 }

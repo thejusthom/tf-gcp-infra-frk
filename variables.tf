@@ -241,3 +241,43 @@ variable "mysql_suffix_upper" {
   type    = bool
   default = false
 }
+
+variable "dns_record_name" {
+  type        = string
+  description = "The name of the DNS record set"
+}
+
+variable "dns_record_type" {
+  type        = string
+  description = "The type of the DNS record set"
+}
+
+variable "dns_record_ttl" {
+  type        = number
+  description = "The TTL (time to live) of the DNS record set"
+}
+
+variable "managed_zone" {
+  type        = string
+  description = "The name of the managed zone"
+}
+
+variable "service_account_account_id" {
+  type        = string
+  description = "The ID of the Google Cloud service account"
+}
+
+variable "service_account_display_name" {
+  type        = string
+  description = "The display name of the Google Cloud service account"
+}
+
+variable "logging_admin_role" {
+  type        = string
+  description = "The role for logging admin permissions"
+}
+
+variable "metric_writer_role" {
+  type        = string
+  description = "The role for metric writer permissions"
+}
