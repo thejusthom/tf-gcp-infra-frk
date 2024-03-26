@@ -191,3 +191,77 @@ resource "google_project_iam_binding" "service_account_roles_metric_write" {
     "serviceAccount:${google_service_account.service_account.email}",
   ]
 }
+
+resource "google_project_iam_binding" "service_account_roles" {
+  project = var.project_id
+  for_each = toset([
+    "roles/logging.admin",
+    "roles/monitoring.metricWriter"
+  ])
+  role = each.key
+
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}"
+  ]
+}
+
+resource "google_pubsub_topic" "verify_email" {
+  name                       = "verify-email"
+  message_retention_duration = "604800s"
+}
+
+resource "google_pubsub_subscription" "verify_email_sub" {
+  name                       = "verify-email-sub"
+  topic                      = google_pubsub_topic.verify_email.id
+  message_retention_duration = "1200s"
+  retain_acked_messages      = true
+  ack_deadline_seconds       = 20
+}
+resource "random_id" "bucket_prefix" {
+  byte_length = 8
+}
+
+resource "google_storage_bucket" "storage_bucket" {
+  name                        = "${random_id.bucket_prefix.hex}-storage-bucket"
+  location                    = "US"
+  uniform_bucket_level_access = true
+}
+
+# data "archive_file" "default" {
+#   type        = "zip"
+#   output_path = "C:/Users/Dell/Desktop/Classes/Sem2/CSYE6225/WS/serverless-fork/target/serverless-0.0.1-SNAPSHOT.jar"
+#   source_dir  = "function-source/"
+# }
+
+resource "google_storage_bucket_object" "default" {
+  name   = "serverless-fork.zip"
+  bucket = google_storage_bucket.storage_bucket.name
+  source = "C:/Users/Dell/Desktop/Classes/Sem2/CSYE6225/WS/serverless-fork/serverless-fork.zip"
+}
+
+resource "google_cloudfunctions2_function" "email_verification_function" {
+  name        = "email-verification-function"
+  location    = var.region
+  description = "Email Verification function"
+
+  build_config {
+    runtime     = "java17"
+    entry_point = "com.csye6225.serverless.service.EmailVerificationService"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.storage_bucket.name
+        object = google_storage_bucket_object.default.name
+      }
+    }
+  }
+  service_config {
+    service_account_email = google_service_account.service_account.email
+  }
+
+  event_trigger {
+    trigger_region = var.region
+    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic   = google_pubsub_topic.verify_email.id
+    retry_policy   = "RETRY_POLICY_RETRY"
+  }
+}
