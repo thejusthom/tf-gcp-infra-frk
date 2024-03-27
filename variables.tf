@@ -281,3 +281,88 @@ variable "metric_writer_role" {
   type        = string
   description = "The role for metric writer permissions"
 }
+variable "service_account_roles" {
+  type        = list(string)
+  description = "Service account Roles"
+}
+
+variable "pubsub_topic_name" {
+  type = string
+}
+
+variable "pubsub_retention_duration" {
+  type = string
+}
+variable "pubsub_subscriber_name" {
+  type = string
+}
+variable "sub_message_retention" {
+  type = string
+}
+variable "ack_deadline_seconds" {
+  type = number
+}
+variable "retain_acked_messages" {
+  type = bool
+}
+variable "random_id_length" {
+  type = number
+}
+variable "storage_bucket_location" {
+  type = string
+}
+variable "storage_bucket_ubla" {
+  type = bool
+}
+variable "google_storage_bucket_name" {
+  description = "The name of the Google Cloud Storage bucket"
+  type        = string
+}
+
+variable "google_storage_bucket_object_name" {
+  description = "The name of the object in the Google Cloud Storage bucket"
+  type        = string
+}
+
+variable "google_storage_bucket_object_src" {
+  type = string
+}
+
+variable "google_vpc_access_connector_name" {
+  description = "The private IP address of the Google Cloud SQL database instance"
+  type        = string
+}
+
+variable "google_vpc_access_connector_cidr_range" {
+  description = "The CIDR range for the VPC access connector"
+  type        = string
+}
+
+variable "google_cloudfunctions2_function_name" {
+  description = "The name of the Cloud Function"
+  type        = string
+}
+
+variable "function_runtime" {
+  description = "The runtime for the Cloud Function"
+  type        = string
+  default     = "java17"
+}
+
+variable "entry_point" {
+  description = "The entry point for the Cloud Function"
+  type        = string
+}
+variable "vpc_connector_egress_settings" {
+  description = "The egress settings for the VPC connector"
+  type        = string
+}
+variable "event_trigger_event_type" {
+  description = "The type of event that will trigger the function"
+  type        = string
+}
+variable "event_trigger_retry_policy" {
+  description = "The retry policy for the event trigger"
+  type        = string
+}
+

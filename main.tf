@@ -87,7 +87,7 @@ resource "google_compute_instance" "vm-instance" {
   }
 
   metadata_startup_script = <<-EOF
-    echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/csye?createDatabaseIfNotExist=true" > .env
+    echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
     echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
     echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
     sudo mv .env /opt/
@@ -193,12 +193,9 @@ resource "google_project_iam_binding" "service_account_roles_metric_write" {
 }
 
 resource "google_project_iam_binding" "service_account_roles" {
-  project = var.project_id
-  for_each = toset([
-    "roles/logging.admin",
-    "roles/monitoring.metricWriter"
-  ])
-  role = each.key
+  project  = var.project_id
+  for_each = toset(var.service_account_roles)
+  role     = each.key
 
   members = [
     "serviceAccount:${google_service_account.service_account.email}"
@@ -206,47 +203,52 @@ resource "google_project_iam_binding" "service_account_roles" {
 }
 
 resource "google_pubsub_topic" "verify_email" {
-  name                       = "verify-email"
-  message_retention_duration = "604800s"
+  name                       = var.pubsub_topic_name
+  message_retention_duration = var.pubsub_retention_duration
 }
 
-resource "google_pubsub_subscription" "verify_email_sub" {
-  name                       = "verify-email-sub"
+resource "google_pubsub_subscription" "test_sub" {
+  name                       = var.pubsub_subscriber_name
   topic                      = google_pubsub_topic.verify_email.id
-  message_retention_duration = "1200s"
-  retain_acked_messages      = true
-  ack_deadline_seconds       = 20
+  message_retention_duration = var.sub_message_retention
+  retain_acked_messages      = var.retain_acked_messages
+  ack_deadline_seconds       = var.ack_deadline_seconds
 }
 resource "random_id" "bucket_prefix" {
-  byte_length = 8
+  byte_length = var.random_id_length
 }
 
 resource "google_storage_bucket" "storage_bucket" {
-  name                        = "${random_id.bucket_prefix.hex}-storage-bucket"
-  location                    = "US"
-  uniform_bucket_level_access = true
+  name                        = "${random_id.bucket_prefix.hex}-${var.google_storage_bucket_name}"
+  location                    = var.storage_bucket_location
+  uniform_bucket_level_access = var.storage_bucket_ubla
 }
-
-# data "archive_file" "default" {
-#   type        = "zip"
-#   output_path = "C:/Users/Dell/Desktop/Classes/Sem2/CSYE6225/WS/serverless-fork/target/serverless-0.0.1-SNAPSHOT.jar"
-#   source_dir  = "function-source/"
-# }
 
 resource "google_storage_bucket_object" "default" {
-  name   = "serverless-fork.zip"
+  name   = var.google_storage_bucket_object_name
   bucket = google_storage_bucket.storage_bucket.name
-  source = "C:/Users/Dell/Desktop/Classes/Sem2/CSYE6225/WS/serverless-fork/serverless-fork.zip"
+  source = var.google_storage_bucket_object_src
 }
-
+resource "google_vpc_access_connector" "connector" {
+  name          = var.google_vpc_access_connector_name
+  ip_cidr_range = var.google_vpc_access_connector_cidr_range
+  network       = google_compute_network.vpc_network.self_link
+}
 resource "google_cloudfunctions2_function" "email_verification_function" {
-  name        = "email-verification-function"
+  name        = var.google_cloudfunctions2_function_name
   location    = var.region
   description = "Email Verification function"
 
   build_config {
-    runtime     = "java17"
-    entry_point = "com.csye6225.serverless.service.EmailVerificationService"
+    runtime     = var.function_runtime
+    entry_point = var.entry_point
+    environment_variables = {
+      DB_NAME                  = var.database_db_name
+      DB_USERNAME              = var.database_db_name
+      DB_PASSWORD              = random_password.password.result
+      DB_URL                   = "jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}"
+      INSTANCE_CONNECTION_NAME = google_sql_database_instance.mysql_instance.connection_name
+    }
     source {
       storage_source {
         bucket = google_storage_bucket.storage_bucket.name
@@ -255,13 +257,23 @@ resource "google_cloudfunctions2_function" "email_verification_function" {
     }
   }
   service_config {
-    service_account_email = google_service_account.service_account.email
+    service_account_email         = google_service_account.service_account.email
+    vpc_connector                 = google_vpc_access_connector.connector.id
+    vpc_connector_egress_settings = var.vpc_connector_egress_settings
+    environment_variables = {
+      DB_NAME                  = var.database_db_name
+      DB_USERNAME              = var.database_db_name
+      DB_PASSWORD              = random_password.password.result
+      DB_URL                   = "jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}"
+      INSTANCE_CONNECTION_NAME = google_sql_database_instance.mysql_instance.connection_name
+    }
   }
+
 
   event_trigger {
     trigger_region = var.region
-    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    event_type     = var.event_trigger_event_type
     pubsub_topic   = google_pubsub_topic.verify_email.id
-    retry_policy   = "RETRY_POLICY_RETRY"
+    retry_policy   = var.event_trigger_retry_policy
   }
 }
