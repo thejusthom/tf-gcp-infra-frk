@@ -365,4 +365,121 @@ variable "event_trigger_retry_policy" {
   description = "The retry policy for the event trigger"
   type        = string
 }
+variable "health_check_name" {
+  description = "Name of the health check"
+  type        = string
+}
+
+variable "health_check_description" {
+  description = "Description of the health check"
+  type        = string
+}
+
+variable "timeout_sec" {
+  description = "Timeout (in seconds) for the health check"
+  type        = number
+}
+
+variable "check_interval_sec" {
+  description = "Interval (in seconds) between health checks"
+  type        = number
+}
+
+variable "healthy_threshold" {
+  description = "Number of consecutive successful health checks required to mark the instance as healthy"
+  type        = number
+}
+
+variable "unhealthy_threshold" {
+  description = "Number of consecutive failed health checks required to mark the instance as unhealthy"
+  type        = number
+}
+
+variable "port" {
+  description = "Port to use for the health check"
+  type        = string
+}
+
+variable "port_specification" {
+  description = "Port specification for the health check"
+  type        = string
+}
+
+variable "request_path" {
+  description = "Request path for the health check"
+  type        = string
+}
+
+variable "ssl_certificate_name" {
+  description = "Name of the managed SSL certificate"
+  type        = string
+}
+variable "namecheap_ssl_certificate_name" {
+  description = "Name of the managed SSL certificate"
+  type        = string
+}
+variable "backend_service_name" {
+  description = "Name of the backend service"
+  type        = string
+}
+
+variable "url_map_name" {
+  description = "Name of the URL map"
+  type        = string
+}
+
+variable "target_https_proxy_name" {
+  description = "Name of the target HTTPS proxy"
+  type        = string
+}
+
+variable "global_forwarding_rule_name" {
+  description = "Name of the global forwarding rule"
+  type        = string
+}
+
+variable "ssl_certificate_private_key" {
+  description = "Path to the private key for the SSL certificate"
+  type        = string
+}
+
+variable "ssl_certificate_certificate" {
+  description = "Path to the certificate for the SSL certificate"
+  type        = string
+}
+variable "base_instance_name" {
+  description = "Base name for the instances in the instance group manager"
+  type        = string
+}
+variable "initial_delay_sec" {
+  description = "Initial delay in seconds for auto-healing"
+  type        = number
+}
+
+variable "autoscaler_name" {
+  description = "The name of the autoscaler"
+  type        = string
+}
+
+
+variable "max_replicas" {
+  description = "The maximum number of replicas the autoscaler can scale up to"
+  type        = number
+}
+
+variable "min_replicas" {
+  description = "The minimum number of replicas the autoscaler can scale down to"
+  type        = number
+}
+
+variable "cooldown_period" {
+  description = "The cooldown period in seconds during which the autoscaler will not attempt to adjust the number of VM instances"
+  type        = number
+}
+
+variable "cpu_utilization_target" {
+  description = "The target CPU utilization for the autoscaler to maintain"
+  type        = number
+}
+
 

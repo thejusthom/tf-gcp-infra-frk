@@ -59,44 +59,44 @@ resource "google_compute_firewall" "firewall-deny" {
   source_ranges = var.firewall_source_ranges
 }
 
-resource "google_compute_instance" "vm-instance" {
-  name         = var.ci_name
-  machine_type = var.ci_machine_type
-  zone         = var.ci_zone
+# resource "google_compute_instance" "vm-instance" {
+#   name         = var.ci_name
+#   machine_type = var.ci_machine_type
+#   zone         = var.ci_zone
 
-  tags = var.ci_tags
+#   tags = var.ci_tags
 
-  boot_disk {
-    device_name = var.boot_disk_device_name
-    initialize_params {
-      image = var.image_path
-      size  = var.disk_size
-      type  = var.disk_type
-    }
-  }
-  network_interface {
-    network    = google_compute_network.vpc_network.self_link
-    subnetwork = google_compute_subnetwork.network_for_app.self_link
-    access_config {
+#   boot_disk {
+#     device_name = var.boot_disk_device_name
+#     initialize_params {
+#       image = var.image_path
+#       size  = var.disk_size
+#       type  = var.disk_type
+#     }
+#   }
+#   network_interface {
+#     network    = google_compute_network.vpc_network.self_link
+#     subnetwork = google_compute_subnetwork.network_for_app.self_link
+#     access_config {
 
-    }
-  }
-  service_account {
-    email  = google_service_account.service_account.email
-    scopes = var.service_account_scope
-  }
+#     }
+#   }
+#   service_account {
+#     email  = google_service_account.service_account.email
+#     scopes = var.service_account_scope
+#   }
 
-  metadata_startup_script = <<-EOF
-    echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
-    echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
-    echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
-    sudo mv .env /opt/
-    sudo chown csye6225:csye6225 /opt/.env
-    sudo setenforce 0
-    sudo systemctl daemon-reload
-    sudo systemctl restart webapp-launch.service
-  EOF
-}
+#   metadata_startup_script = <<-EOF
+#     echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
+#     echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
+#     echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
+#     sudo mv .env /opt/
+#     sudo chown csye6225:csye6225 /opt/.env
+#     sudo setenforce 0
+#     sudo systemctl daemon-reload
+#     sudo systemctl restart webapp-launch.service
+#   EOF
+# }
 
 resource "google_compute_global_address" "ps_ip_address" {
   name          = var.ps_ip_address_name
@@ -160,17 +160,9 @@ resource "google_sql_user" "users" {
   name     = var.database_db_name
   instance = google_sql_database_instance.mysql_instance.name
   password = random_password.password.result
-  host     = google_compute_instance.vm-instance.hostname
+  # host     = google_compute_instance.vm-instance.hostname
 }
 
-resource "google_dns_record_set" "dns_record_set" {
-  name = var.dns_record_name
-  type = var.dns_record_type
-  ttl  = var.dns_record_ttl
-
-  managed_zone = var.managed_zone
-  rrdatas      = [google_compute_instance.vm-instance.network_interface[0].access_config[0].nat_ip]
-}
 resource "google_service_account" "service_account" {
   account_id   = var.service_account_account_id
   display_name = var.service_account_display_name
@@ -242,13 +234,6 @@ resource "google_cloudfunctions2_function" "email_verification_function" {
   build_config {
     runtime     = var.function_runtime
     entry_point = var.entry_point
-    environment_variables = {
-      DB_NAME                  = var.database_db_name
-      DB_USERNAME              = var.database_db_name
-      DB_PASSWORD              = random_password.password.result
-      DB_URL                   = "jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}"
-      INSTANCE_CONNECTION_NAME = google_sql_database_instance.mysql_instance.connection_name
-    }
     source {
       storage_source {
         bucket = google_storage_bucket.storage_bucket.name
@@ -276,4 +261,146 @@ resource "google_cloudfunctions2_function" "email_verification_function" {
     pubsub_topic   = google_pubsub_topic.verify_email.id
     retry_policy   = var.event_trigger_retry_policy
   }
+}
+
+resource "google_compute_region_instance_template" "vm-instance-template" {
+  name         = var.ci_name
+  machine_type = var.ci_machine_type
+  tags         = var.ci_tags
+
+  disk {
+    source_image = var.image_path
+    disk_size_gb = var.disk_size
+    disk_type    = var.disk_type
+    auto_delete  = true
+    boot         = true
+  }
+
+  network_interface {
+    network    = google_compute_network.vpc_network.self_link
+    subnetwork = google_compute_subnetwork.network_for_app.self_link
+    access_config {
+    }
+  }
+  service_account {
+    email  = google_service_account.service_account.email
+    scopes = var.service_account_scope
+  }
+
+  metadata_startup_script = <<-EOF
+    echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
+    echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
+    echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
+    sudo mv .env /opt/
+    sudo chown csye6225:csye6225 /opt/.env
+    sudo setenforce 0
+    sudo systemctl daemon-reload
+    sudo systemctl restart webapp-launch.service
+  EOF
+}
+
+resource "google_compute_health_check" "healthz-health-check" {
+  name                = var.health_check_name
+  description         = var.health_check_description
+  timeout_sec         = var.timeout_sec
+  check_interval_sec  = var.check_interval_sec
+  healthy_threshold   = var.healthy_threshold
+  unhealthy_threshold = var.unhealthy_threshold
+
+  http_health_check {
+    port               = var.port
+    port_specification = var.port_specification
+    request_path       = var.request_path
+  }
+}
+
+resource "google_compute_region_instance_group_manager" "webapp_server" {
+  name               = "webapp-instance-group-manager"
+  base_instance_name = var.base_instance_name
+  region             = var.region
+  version {
+    instance_template = google_compute_region_instance_template.vm-instance-template.self_link
+  }
+  named_port {
+    name = "webapp"
+    port = var.port
+  }
+
+  auto_healing_policies {
+    health_check      = google_compute_health_check.healthz-health-check.id
+    initial_delay_sec = var.initial_delay_sec
+  }
+}
+
+resource "google_compute_region_autoscaler" "compute_region_autoscaler" {
+  name   = var.autoscaler_name
+  region = var.region
+  target = google_compute_region_instance_group_manager.webapp_server.id
+
+  autoscaling_policy {
+    max_replicas    = var.max_replicas
+    min_replicas    = var.min_replicas
+    cooldown_period = var.cooldown_period
+
+    cpu_utilization {
+      target = var.cpu_utilization_target
+    }
+  }
+}
+
+resource "google_compute_managed_ssl_certificate" "ssl_certif" {
+  name = var.ssl_certificate_name
+  managed {
+    domains = ["thejusthomson.me", "www.thejusthomson.me"]
+  }
+}
+
+resource "google_compute_ssl_certificate" "namecheap_ssl_certif" {
+  name        = "namecheap-ssl-cert"
+  private_key = file("${var.ssl_certificate_private_key}")
+  certificate = file("${var.ssl_certificate_certificate}")
+}
+resource "google_compute_backend_service" "default" {
+  name                  = var.backend_service_name
+  health_checks         = [google_compute_health_check.healthz-health-check.id]
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_name             = "webapp"
+  protocol              = "HTTP"
+  log_config {
+    enable = true
+  }
+  backend {
+    group = google_compute_region_instance_group_manager.webapp_server.instance_group
+  }
+}
+resource "google_compute_url_map" "default" {
+  name            = "web-map-http"
+  default_service = google_compute_backend_service.default.id
+}
+resource "google_compute_target_https_proxy" "lb_default" {
+  name    = "myservice-https-proxy"
+  url_map = google_compute_url_map.default.id
+  ssl_certificates = [
+    google_compute_ssl_certificate.namecheap_ssl_certif.id
+  ]
+  depends_on = [
+    google_compute_ssl_certificate.namecheap_ssl_certif
+  ]
+}
+
+resource "google_compute_global_forwarding_rule" "default" {
+  ip_protocol           = "TCP"
+  name                  = "global-rule"
+  target                = google_compute_target_https_proxy.lb_default.id
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "443"
+}
+
+resource "google_dns_record_set" "dns_record_set" {
+  name = var.dns_record_name
+  type = var.dns_record_type
+  ttl  = var.dns_record_ttl
+
+  managed_zone = var.managed_zone
+  rrdatas      = [google_compute_global_forwarding_rule.default.ip_address]
 }
