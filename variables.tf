@@ -224,7 +224,7 @@ variable "password_min_special" {
 
 variable "password_override_special" {
   type    = string
-  default = "‘~!@#$%^&*()_-+={}[]/<>,.;?':|"
+  default = "~!@#$%^&*()_-+={}[]<>.;?:|"
 }
 
 variable "mysql_suffix_length" {
@@ -481,5 +481,7 @@ variable "cpu_utilization_target" {
   description = "The target CPU utilization for the autoscaler to maintain"
   type        = number
 }
-
-
+variable "prevent_destroy" {
+  type = bool
+  default = true
+}

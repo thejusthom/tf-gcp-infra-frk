@@ -47,57 +47,6 @@ resource "google_compute_firewall" "firewall-allow" {
   source_ranges = var.firewall_source_ranges
 }
 
-resource "google_compute_firewall" "firewall-deny" {
-  name    = var.firewall_name_deny
-  network = google_compute_network.vpc_network.name
-
-  deny {
-    protocol = "all"
-    ports    = []
-  }
-  source_tags   = var.firewall_source_tags
-  source_ranges = var.firewall_source_ranges
-}
-
-# resource "google_compute_instance" "vm-instance" {
-#   name         = var.ci_name
-#   machine_type = var.ci_machine_type
-#   zone         = var.ci_zone
-
-#   tags = var.ci_tags
-
-#   boot_disk {
-#     device_name = var.boot_disk_device_name
-#     initialize_params {
-#       image = var.image_path
-#       size  = var.disk_size
-#       type  = var.disk_type
-#     }
-#   }
-#   network_interface {
-#     network    = google_compute_network.vpc_network.self_link
-#     subnetwork = google_compute_subnetwork.network_for_app.self_link
-#     access_config {
-
-#     }
-#   }
-#   service_account {
-#     email  = google_service_account.service_account.email
-#     scopes = var.service_account_scope
-#   }
-
-#   metadata_startup_script = <<-EOF
-#     echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
-#     echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
-#     echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
-#     sudo mv .env /opt/
-#     sudo chown csye6225:csye6225 /opt/.env
-#     sudo setenforce 0
-#     sudo systemctl daemon-reload
-#     sudo systemctl restart webapp-launch.service
-#   EOF
-# }
-
 resource "google_compute_global_address" "ps_ip_address" {
   name          = var.ps_ip_address_name
   address_type  = var.ps_ip_address_type
@@ -111,13 +60,86 @@ resource "google_service_networking_connection" "ps_connection" {
   service                 = var.ps_connection_service
   reserved_peering_ranges = [google_compute_global_address.ps_ip_address.name]
 }
+resource "random_string" "kms_prefix" {
+  length = 4
+  special = false
+}
+
+resource "google_kms_key_ring" "kms_keyring" {
+  name     = "keyring-${random_string.kms_prefix.result}"
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "storage_crypto_key" {
+  name            = "storage-crypto-key"
+  key_ring        = google_kms_key_ring.kms_keyring.id
+  rotation_period = "2592000s"
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "vm_crypto_key" {
+  name            = "vm-crypto-key"
+  key_ring        = google_kms_key_ring.kms_keyring.id
+  rotation_period = "2592000s"
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_kms_crypto_key" "sql_crypto_key" {
+  name            = "sql-crypto-key"
+  key_ring        = google_kms_key_ring.kms_keyring.id
+  rotation_period = "2592000s"
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+data "google_storage_project_service_account" "project_service_account" {  
+}
+
+resource "google_project_service_identity" "sql_service_identity" {
+  provider = google-beta
+  project = var.project_id
+  service = "sqladmin.googleapis.com"
+}
+
+resource "google_kms_crypto_key_iam_binding" "storage_crypto_binding" {
+  provider = google-beta
+  crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = [
+    "serviceAccount:${data.google_storage_project_service_account.project_service_account.email_address}"
+    ]
+}
+
+resource "google_kms_crypto_key_iam_binding" "vm_crypto_binding" {
+  provider = google-beta
+  crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = [
+    "serviceAccount:service-1021504010524@compute-system.iam.gserviceaccount.com"
+    ]
+}
+
+resource "google_kms_crypto_key_iam_binding" "sql_crypto_binding" {
+  provider = google-beta
+  crypto_key_id = google_kms_crypto_key.sql_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members       = [
+    "serviceAccount:${google_project_service_identity.sql_service_identity.email}"
+  ]
+}
 
 resource "google_sql_database_instance" "mysql_instance" {
   name                = "mysql-${random_string.mysql_suffix.result}"
   database_version    = var.database_version
   region              = var.database_instance_region
   deletion_protection = false
-  depends_on          = [google_service_networking_connection.ps_connection]
+  depends_on          = [google_service_networking_connection.ps_connection, google_kms_crypto_key.sql_crypto_key]
+  encryption_key_name = google_kms_crypto_key.sql_crypto_key.id
   settings {
     tier              = var.database_instance_tier
     availability_type = var.database_availability_type
@@ -160,28 +182,11 @@ resource "google_sql_user" "users" {
   name     = var.database_db_name
   instance = google_sql_database_instance.mysql_instance.name
   password = random_password.password.result
-  # host     = google_compute_instance.vm-instance.hostname
 }
 
 resource "google_service_account" "service_account" {
   account_id   = var.service_account_account_id
   display_name = var.service_account_display_name
-}
-
-
-resource "google_project_iam_binding" "service_account_roles_logging_admin" {
-  project = var.project_id
-  role    = var.logging_admin_role
-  members = [
-    "serviceAccount:${google_service_account.service_account.email}",
-  ]
-}
-resource "google_project_iam_binding" "service_account_roles_metric_write" {
-  project = var.project_id
-  role    = var.metric_writer_role
-  members = [
-    "serviceAccount:${google_service_account.service_account.email}",
-  ]
 }
 
 resource "google_project_iam_binding" "service_account_roles" {
@@ -206,6 +211,7 @@ resource "google_pubsub_subscription" "test_sub" {
   retain_acked_messages      = var.retain_acked_messages
   ack_deadline_seconds       = var.ack_deadline_seconds
 }
+
 resource "random_id" "bucket_prefix" {
   byte_length = var.random_id_length
 }
@@ -214,6 +220,12 @@ resource "google_storage_bucket" "storage_bucket" {
   name                        = "${random_id.bucket_prefix.hex}-${var.google_storage_bucket_name}"
   location                    = var.storage_bucket_location
   uniform_bucket_level_access = var.storage_bucket_ubla
+  storage_class = "REGIONAL"
+  force_destroy = true
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.storage_crypto_key.id
+  }
+  depends_on = [google_kms_crypto_key_iam_binding.storage_crypto_binding]
 }
 
 resource "google_storage_bucket_object" "default" {
@@ -221,11 +233,13 @@ resource "google_storage_bucket_object" "default" {
   bucket = google_storage_bucket.storage_bucket.name
   source = var.google_storage_bucket_object_src
 }
+
 resource "google_vpc_access_connector" "connector" {
   name          = var.google_vpc_access_connector_name
   ip_cidr_range = var.google_vpc_access_connector_cidr_range
   network       = google_compute_network.vpc_network.self_link
 }
+
 resource "google_cloudfunctions2_function" "email_verification_function" {
   name        = var.google_cloudfunctions2_function_name
   location    = var.region
@@ -253,8 +267,6 @@ resource "google_cloudfunctions2_function" "email_verification_function" {
       INSTANCE_CONNECTION_NAME = google_sql_database_instance.mysql_instance.connection_name
     }
   }
-
-
   event_trigger {
     trigger_region = var.region
     event_type     = var.event_trigger_event_type
@@ -274,8 +286,10 @@ resource "google_compute_region_instance_template" "vm-instance-template" {
     disk_type    = var.disk_type
     auto_delete  = true
     boot         = true
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm_crypto_key.id
+    }
   }
-
   network_interface {
     network    = google_compute_network.vpc_network.self_link
     subnetwork = google_compute_subnetwork.network_for_app.self_link
@@ -286,7 +300,6 @@ resource "google_compute_region_instance_template" "vm-instance-template" {
     email  = google_service_account.service_account.email
     scopes = var.service_account_scope
   }
-
   metadata_startup_script = <<-EOF
     echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
     echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
@@ -348,13 +361,6 @@ resource "google_compute_region_autoscaler" "compute_region_autoscaler" {
   }
 }
 
-resource "google_compute_managed_ssl_certificate" "ssl_certif" {
-  name = var.ssl_certificate_name
-  managed {
-    domains = ["thejusthomson.me", "www.thejusthomson.me"]
-  }
-}
-
 resource "google_compute_ssl_certificate" "namecheap_ssl_certif" {
   name        = "namecheap-ssl-cert"
   private_key = file("${var.ssl_certificate_private_key}")
@@ -373,6 +379,7 @@ resource "google_compute_backend_service" "default" {
     group = google_compute_region_instance_group_manager.webapp_server.instance_group
   }
 }
+
 resource "google_compute_url_map" "default" {
   name            = "web-map-http"
   default_service = google_compute_backend_service.default.id
@@ -400,7 +407,36 @@ resource "google_dns_record_set" "dns_record_set" {
   name = var.dns_record_name
   type = var.dns_record_type
   ttl  = var.dns_record_ttl
-
   managed_zone = var.managed_zone
   rrdatas      = [google_compute_global_forwarding_rule.default.ip_address]
+}
+resource "google_secret_manager_secret" "DB_URL" {
+  secret_id = "DB_URL"
+  replication {
+    auto {}
+  }
+}
+resource "google_secret_manager_secret_version" "DB_URL_VERSION" {
+  secret = google_secret_manager_secret.DB_URL.id
+  secret_data = "jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true"
+}
+resource "google_secret_manager_secret" "DB_NAME" {
+  secret_id = "DB_NAME"
+  replication {
+    auto {}
+  }
+}
+resource "google_secret_manager_secret_version" "DB_NAME_VERSION" {
+  secret = google_secret_manager_secret.DB_NAME.id
+  secret_data = var.database_db_name
+}
+resource "google_secret_manager_secret" "DB_PASSWORD" {
+  secret_id = "DB_PASSWORD"
+  replication {
+    auto {}
+  }
+}
+resource "google_secret_manager_secret_version" "DB_PASSWORD_VERSION" {
+  secret = google_secret_manager_secret.DB_PASSWORD.id  
+  secret_data = random_password.password.result
 }
