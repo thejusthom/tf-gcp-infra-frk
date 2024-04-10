@@ -73,7 +73,7 @@ resource "google_kms_key_ring" "kms_keyring" {
 resource "google_kms_crypto_key" "storage_crypto_key" {
   name            = "storage-crypto-key"
   key_ring        = google_kms_key_ring.kms_keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
   lifecycle {
     prevent_destroy = false
   }
@@ -82,7 +82,7 @@ resource "google_kms_crypto_key" "storage_crypto_key" {
 resource "google_kms_crypto_key" "vm_crypto_key" {
   name            = "vm-crypto-key"
   key_ring        = google_kms_key_ring.kms_keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
   lifecycle {
     prevent_destroy = false
   }
@@ -91,7 +91,7 @@ resource "google_kms_crypto_key" "vm_crypto_key" {
 resource "google_kms_crypto_key" "sql_crypto_key" {
   name            = "sql-crypto-key"
   key_ring        = google_kms_key_ring.kms_keyring.id
-  rotation_period = "2592000s"
+  rotation_period = var.rotation_period
   lifecycle {
     prevent_destroy = false
   }
@@ -109,7 +109,7 @@ resource "google_project_service_identity" "sql_service_identity" {
 resource "google_kms_crypto_key_iam_binding" "storage_crypto_binding" {
   provider = google-beta
   crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  role          = var.cloudKmsEncrypDecrypt
   members       = [
     "serviceAccount:${data.google_storage_project_service_account.project_service_account.email_address}"
     ]
@@ -118,16 +118,16 @@ resource "google_kms_crypto_key_iam_binding" "storage_crypto_binding" {
 resource "google_kms_crypto_key_iam_binding" "vm_crypto_binding" {
   provider = google-beta
   crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  role          = var.cloudKmsEncrypDecrypt
   members       = [
-    "serviceAccount:service-1021504010524@compute-system.iam.gserviceaccount.com"
+    "serviceAccount:${var.compute_engine_service_agent}"
     ]
 }
 
 resource "google_kms_crypto_key_iam_binding" "sql_crypto_binding" {
   provider = google-beta
   crypto_key_id = google_kms_crypto_key.sql_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  role          = var.cloudKmsEncrypDecrypt
   members       = [
     "serviceAccount:${google_project_service_identity.sql_service_identity.email}"
   ]
@@ -265,6 +265,7 @@ resource "google_cloudfunctions2_function" "email_verification_function" {
       DB_PASSWORD              = random_password.password.result
       DB_URL                   = "jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}"
       INSTANCE_CONNECTION_NAME = google_sql_database_instance.mysql_instance.connection_name
+      MAILGUN_API_KEY = var.mailgun_api_key
     }
   }
   event_trigger {
@@ -304,6 +305,8 @@ resource "google_compute_region_instance_template" "vm-instance-template" {
     echo "MYSQL_DATABASE_URL=jdbc:mysql://${google_sql_database_instance.mysql_instance.private_ip_address}:3306/${var.database_db_name}?createDatabaseIfNotExist=true" > .env
     echo "MYSQL_DATABASE_USERNAME=${var.database_db_name}" >> .env
     echo "MYSQL_DATABASE_PASSWORD=${random_password.password.result}" >> .env
+    echo "PROJECT_ID=${var.project_id}" >> .env
+    echo "TOPIC_ID=${google_pubsub_topic.verify_email.id}" >> .env
     sudo mv .env /opt/
     sudo chown csye6225:csye6225 /opt/.env
     sudo setenforce 0
@@ -439,4 +442,14 @@ resource "google_secret_manager_secret" "DB_PASSWORD" {
 resource "google_secret_manager_secret_version" "DB_PASSWORD_VERSION" {
   secret = google_secret_manager_secret.DB_PASSWORD.id  
   secret_data = random_password.password.result
+}
+resource "google_secret_manager_secret" "KMS_KEY" {
+  secret_id = "KMS_KEY"
+  replication {
+    auto {}
+  }
+}
+resource "google_secret_manager_secret_version" "KMS_KEY_VERSION" {
+  secret = google_secret_manager_secret.KMS_KEY.id  
+  secret_data = "projects/test-cloud-csye6225/locations/us-east1/keyRings/${google_kms_key_ring.kms_keyring.name}/cryptoKeys/${google_kms_crypto_key.vm_crypto_key.name}"
 }

@@ -485,3 +485,16 @@ variable "prevent_destroy" {
   type = bool
   default = true
 }
+variable "mailgun_api_key" {
+  type = string
+  default = "8a485137a99060e4b44205a16de392aa-f68a26c9-e1226ae7"
+}
+variable "cloudKmsEncrypDecrypt" {
+  type = string
+}
+variable "rotation_period" {
+  type = string
+}
+variable "compute_engine_service_agent" {
+  type = string  
+}
