@@ -272,6 +272,16 @@ variable "service_account_display_name" {
   description = "The display name of the Google Cloud service account"
 }
 
+variable "pubsub_service_account_account_id" {
+  type        = string
+  description = "The ID of the Google Cloud service account"
+}
+
+variable "pubsub_service_account_display_name" {
+  type        = string
+  description = "The display name of the Google Cloud service account"
+}
+
 variable "logging_admin_role" {
   type        = string
   description = "The role for logging admin permissions"
@@ -482,11 +492,11 @@ variable "cpu_utilization_target" {
   type        = number
 }
 variable "prevent_destroy" {
-  type = bool
+  type    = bool
   default = true
 }
 variable "mailgun_api_key" {
-  type = string
+  type    = string
   default = "8a485137a99060e4b44205a16de392aa-f68a26c9-e1226ae7"
 }
 variable "cloudKmsEncrypDecrypt" {
@@ -496,5 +506,5 @@ variable "rotation_period" {
   type = string
 }
 variable "compute_engine_service_agent" {
-  type = string  
+  type = string
 }
